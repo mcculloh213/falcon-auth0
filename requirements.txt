@@ -1,0 +1,3 @@
+falcon
+python-jose-cryptodome==1.3.2
+six

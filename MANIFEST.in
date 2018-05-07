@@ -1,0 +1,8 @@
+# Include the README
+include README.md
+
+# Include the license
+include LICENSE.md
+
+# Include CHANGES.txt
+include CHANGES.txt
