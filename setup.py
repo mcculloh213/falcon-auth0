@@ -12,7 +12,7 @@ setup(
     name='falcon_auth0',
 
     # Version Number:
-    version='1.0.2',
+    version='1.0.7',
 
     # Classifiers
     classifiers = [
@@ -22,6 +22,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
@@ -29,7 +30,7 @@ setup(
     ],
 
     # Keywords
-    keywords='falcon authorization auth0',
+    keywords='falcon auth0 authorization middleware',
 
     # Application Author Details:
     author='H.D. "Chip" McCullough IV',
@@ -54,6 +55,7 @@ setup(
     # Dependent Packages (Distributions):
     install_requires=[
         'falcon',
+        'pretend',
         'python-jose-cryptodome',
         'six'
     ],

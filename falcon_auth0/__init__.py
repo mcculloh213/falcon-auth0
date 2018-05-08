@@ -16,7 +16,7 @@ from .logger import logger
 __author__ = 'H.D. "Chip" McCullough IV'
 # See https://auth0.com/docs/quickstart/backend/python/01-authorization
 
-__version__ = '1.0.2'
+__version__ = '1.0.7'
 VERSION = __version__
 
 __name__ = 'Auth0Middleware'
@@ -26,12 +26,17 @@ A0M = TypeVar('A0M', bound='Auth0Middleware')
 
 class AbstractBaseMiddleware(ABC):
 
-    def __init__(self, middleware_config: dict = None, *args, **kwargs):
-        self.__config: dict = middleware_config
+    def __init__(self, middleware_config: dict = None, claims_config: dict = None, *args, **kwargs):
+        self.__config = middleware_config
+        self.__claims = claims_config
 
     @property
-    def config(self):
+    def config(self) -> dict:
         return self.__config
+
+    @property
+    def claims(self) -> dict:
+        return self.__claims
 
     @abstractmethod
     def process_request(self, req: Request, resp: Response) -> NoReturn:
@@ -72,7 +77,9 @@ class AbstractBaseMiddleware(ABC):
 
 class Auth0Middleware(AbstractBaseMiddleware):
 
-    def __init__(self, auth_config: Dict[str, Union[str, Dict[str, str]]], environment: str = None):
+    def __init__(self, auth_config: Dict[str, Union[str, Dict[str, str]]], claims_config: dict = None,
+                 jwt_options: Dict[str, Union[bool, int]] = None, digest_access_token: bool = True,
+                 environment: str = None):
         """ Falcon Middleware for Auth0 Authorization using Bearer Tokens.
 
         :param auth_config: Dictionary containing configuration variables for Auth0.
@@ -80,11 +87,34 @@ class Auth0Middleware(AbstractBaseMiddleware):
             Example:
             {
                 'alg': ['RS256'],
-                'audience': 'my.app.name.auth0.com/userinfo',
+                'access_token': 'access_token', # This is optional. This variable points to the key in the Request body
+                                                  that holds the access_token. If it's not provided, it defaults to
+                                                  'access_token'.
+                'audience': <Auth0 Client ID>,
                 'domain': 'my.app.name.auth0.com', # or 'https://my.app.name.auth0.com/'
                 'jwks_uri': 'https://my.app.name.auth0.com/.well-known/jwks.json'
             }
         :type auth_config: Dict[str, Union[str, Dict[str, str]]]
+        :param claims_config: TODO: I'll write this once I actually get valid claims back.
+        :type claims_config: Dict[]
+        :param jwt_options: A configurable list of options that dictates what validation is performed (or not performed)
+            when decoding the JWT. The options Dictionary takes the form of:
+            {
+                'verify_signature': True,
+                'verify_aud': True,
+                'verify_iat': True,
+                'verify_exp': True,
+                'verify_nbf': True,
+                'verify_iss': True,
+                'verify_sub': True,
+                'verify_jti': True,
+                'verify_at_hash': True,
+                'leeway': 0
+            }
+        :type jwt_options: Dict[str, Union[bool, int]]
+        :param digest_access_token: The Auth0 Middleware will automatically "digest", the access_token contained in the
+            body of the incoming Request.
+        :type digest_access_token: bool
         :param environment: Environment specification for the configuration if you have different configurations for
             different environments. If an environment is not provided, it will assume the config is in the format
             listed above.
@@ -93,33 +123,36 @@ class Auth0Middleware(AbstractBaseMiddleware):
             {
                 'dev': {
                     'alg': ['RS256'],
-                    'audience': 'my.dev.environment.auth0.com/userinfo',
+                    'audience': <Auth0 Client ID>,
                     'domain': 'my.dev.environment.auth0.com', # or 'https://my.dev.environment.auth0.com/'
                     'jwks_uri': 'https://my.dev.environment.auth0.com/.well-known/jwks.json'
                 },
                 'test': {
                     'alg': ['RS256'],
-                    'audience': 'my.test.environment.auth0.com/userinfo',
+                    'audience': <Auth0 Client ID>,
                     'domain': 'my.test.environment.auth0.com', # or 'https://my.test.environment.auth0.com/'
                     'jwks_uri': 'https://my.test.environment.auth0.com/.well-known/jwks.json'
                 },
                 'uat': {
                     'alg': ['RS256'],
-                    'audience': 'my.uat.environment.auth0.com/userinfo',
+                    'audience': <Auth0 Client ID>,
                     'domain': 'my.uat.environment.auth0.com', # or 'https://my.uat.environment.auth0.com/'
                     'jwks_uri': 'https://my.uat.environment.auth0.com/.well-known/jwks.json'
                 },
                 'prod': {
                     'alg': ['RS256'],
-                    'audience': 'my.prod.environment.auth0.com/userinfo',
+                    'audience': <Auth0 Client ID>,
                     'domain': 'my.prod.environment.auth0.com', # or 'https://my.prod.environment.auth0.com/'
                     'jwks_uri': 'https://my.prod.environment.auth0.com/.well-known/jwks.json'
                 }
             }
         :type environment: str
         """
-        super().__init__(middleware_config=auth_config)
+        super().__init__(middleware_config=auth_config, claims_config=claims_config)
+        self.__jwt_options = jwt_options
+        self.__digest = digest_access_token
         self.__environment: str = environment
+        self.__jwks = self.__create_jwks()
 
     @staticmethod
     def __get_token_auth_header(req: Request) -> Tuple[Union[str, None], Union[str, None]]:
@@ -156,6 +189,45 @@ class Auth0Middleware(AbstractBaseMiddleware):
             logger.info('No Authorization provided.')
             return None, None
 
+    def __get_access_token(self, req: Request) -> str:
+        """ Pulls the User's access_token from the body of the incoming Request. If the :code`digest_access_token`
+            parameter was not entered in the constructor, it will automatically remove the access_token from the
+            Request body.
+
+        :param req: Request object that will be routed to an appropriate on_* responder method.
+        :return: The access_token
+        """
+        _environment_config = self.config.get(self.__environment, self.config)
+        _access_token = req.get_header('X-Auth-Token', None)
+        if _access_token is None:
+            if req.method in ['HEAD', 'GET']:
+                _access_token = (req.params.pop(_environment_config.get('access_token', 'access_token')) if self.__digest
+                                    else req.params.get(_environment_config.get('access_token', 'access_token')))
+            else:
+                _access_token = (req.context.pop(_environment_config.get('access_token', 'access_token')) if self.__digest
+                                    else req.context.get(_environment_config.get('access_token', 'access_token')))
+        return _access_token
+
+    def __create_jwks(self) -> Union[dict, None]:
+        """ Creates the JSON Web Key Set from the Auth0 .well_known/jwks.json end point.
+
+        :return: JWKS Dictionary or None if the endpoint could not be reached.
+        :rtype: Union[dict, None]
+        """
+        _jwks_uri = self.config.get(self.__environment, self.config).get('jwks_uri', None)
+        _jwks_raw = urlopen(_jwks_uri).read()
+        return loads(_jwks_raw) if _jwks_raw is not None else None
+
+    def __process_claims(self, claims: dict) -> dict:
+        """ Process claims returned by parsing the JWT Authorization based on the claims config.
+
+        :param claims:
+        :return:
+        """
+        if self.__claims:
+            print(type(self.__claims))
+        print(claims)
+        return claims
 
     def process_request(self, req: Request, resp: Response) -> NoReturn:
         """ Processes the incoming request before routing it by parsing the Authorization header, and attaching the
@@ -164,15 +236,18 @@ class Auth0Middleware(AbstractBaseMiddleware):
         :param req: Request object that will be routed to an appropriate on_* responder method.
         :param resp: Response object that will be routed to the on_* responder.
         """
-        _bearer, _token = self.__get_token_auth_header(req)
-        _jwks_uri = self.config.get(self.__environment, self.config).get('jwks_uri', None)
-        _jwks = loads(urlopen(_jwks_uri)) if _jwks_uri is not None else {}
+        if self.__jwks is None:
+            self.__jwks = self.__create_jwks()
 
-        if _bearer.lower() == 'bearer':
+        _bearer, _token = self.__get_token_auth_header(req)
+
+        if _bearer is None:
+            req.context.update({'auth': _bearer})
+        elif _bearer.lower() == 'bearer':
             _unverified_header = jwt.get_unverified_header(_token)
             _rsa_key = {}
 
-            for key in _jwks.get('keys', []):
+            for key in self.__jwks.get('keys', []):
                 if key.get('kid') == _unverified_header.get('kid'):
                     _rsa_key = {
                         'kty': key['kty'],
@@ -187,13 +262,16 @@ class Auth0Middleware(AbstractBaseMiddleware):
                             token=_token,
                             key=dumps(_rsa_key),
                             algorithms=self.config.get(self.__environment, self.config).get('alg', ['RS256']),
+                            options=self.__jwt_options,
                             audience=self.config.get(self.__environment, self.config).get('audience', None),
-                            issuer=self.config.get(self.__environment, self.config).get('domain', None)
+                            issuer=self.config.get(self.__environment, self.config).get('domain', None),
+                            # subject=None,
+                            access_token=self.__get_access_token(req)
                         )
-                        req.context.update({ 'auth': _claims })
+                        req.context.update({ 'auth': self.__process_claims(_claims) })
                     except jwt.ExpiredSignatureError as e:
-                        print(e)
                         print(type(e))
+                        print(e)
                         raise http_error_factory(
                             status=HTTP_401,
                             title='Expired Token',
@@ -203,8 +281,8 @@ class Auth0Middleware(AbstractBaseMiddleware):
                             code=None
                         )
                     except jwt.JWTClaimsError as e:
-                        print(e)
                         print(type(e))
+                        print(e)
                         raise http_error_factory(
                             status=HTTP_401,
                             title='Invalid Claims',
@@ -214,8 +292,8 @@ class Auth0Middleware(AbstractBaseMiddleware):
                             code=None
                         )
                     except Exception as e:
-                        print(e)
                         print(type(e))
+                        print(e)
                         raise http_error_factory()
         else:
             raise http_error_factory(

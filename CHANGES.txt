@@ -15,6 +15,22 @@ Release Summary:
 1.0.2 -- May 08th, 2018:
     Added Python logger for Middleware Logging.
 
+1.0.3 -- May 08th, 2018:
+    Handle no provided auth by appending { 'auth': None } to req.context
+
+1.0.4 -- May 08th, 2018:
+    Fix JSON loads TypeError when parsing the return object from urlopen(_jwks_uri)
+
+1.0.5 -- May 08th, 2018:
+    Fixed AttributeError: 'NoneType' object has no attribute 'lower'
+
+1.0.6 -- May 08th, 2018:
+    Added support for retrieving the access_token used to validate the JSON Web Token from the incoming Request body.
+
+1.0.7 -- May 08th, 2018:
+    Added support for retrieving the access_token used to validate the JSON Web Token from the incoming Request body OR
+        parameters OR header via X-Auth-Token.
+
 Release Details:
 ----------------
 
@@ -36,3 +52,42 @@ Release v1.0.2, May 08th, 2018
 
 Added and implemented a Python logger to capture Auth0Middleware data. Added `__version__`, `VERSION`, and `__name__`
 variables to the project.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.3, May 08th, 2018
+
+Added handling of no Authorization header in the incoming Request. No Authorization will append the fields:
+`{ 'auth': None }` onto the req.context object going to the responder.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.4, May 08th, 2018
+
+How many times am I going to change this today? Who knows! I really should add tests...
+
+Added handling template for returned JWT claims, but final implementation will probably be in v1.0.4+.
+
+Fixed JSON loads TypeError when parsing the return object from urlopen(_jwks_uri), because _jwks_uri is an HTTPResponse
+object, and not a String, bytes, or bytearray object. It is now a String.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.5, May 08th, 2018
+
+Fifth micro-release today! Fixed AttributeError: 'NoneType' object has no attribute 'lower' when parsing a non-existant
+Authorization header.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.6, May 08th, 2018
+
+Just in time for EOD, there is a sixth micro-update, now adding a method for pulling the access_token required to
+verify the JSON Web Token.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.7, May 08th, 2018
+
+Changed getting access_token solely from the Request body, because HEAD and GET request don't have that. So it'll first
+check for the header X-Auth-Token, then resort to the body or the query string to find the access_token.
