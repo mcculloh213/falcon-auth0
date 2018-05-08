@@ -11,14 +11,20 @@ from six.moves.urllib.request import urlopen
 
 # Local Source Imports
 from .__http_factory import http_error_factory
+from .logger import logger
 
 __author__ = 'H.D. "Chip" McCullough IV'
 # See https://auth0.com/docs/quickstart/backend/python/01-authorization
 
-AM = TypeVar('AM', bound='AbstractMiddleware')
+__version__ = '1.0.2'
+VERSION = __version__
+
+__name__ = 'Auth0Middleware'
+
+AM = TypeVar('AM', bound='AbstractBaseMiddleware')
 A0M = TypeVar('A0M', bound='Auth0Middleware')
 
-class AbstractMiddleware(ABC):
+class AbstractBaseMiddleware(ABC):
 
     def __init__(self, middleware_config: dict = None, *args, **kwargs):
         self.__config: dict = middleware_config
@@ -64,7 +70,7 @@ class AbstractMiddleware(ABC):
         """
         raise NotImplementedError
 
-class Auth0Middleware(AbstractMiddleware):
+class Auth0Middleware(AbstractBaseMiddleware):
 
     def __init__(self, auth_config: Dict[str, Union[str, Dict[str, str]]], environment: str = None):
         """ Falcon Middleware for Auth0 Authorization using Bearer Tokens.
@@ -113,10 +119,10 @@ class Auth0Middleware(AbstractMiddleware):
         :type environment: str
         """
         super().__init__(middleware_config=auth_config)
-        self.__environment = environment
+        self.__environment: str = environment
 
     @staticmethod
-    def __get_token_auth_header(req: Request) -> Tuple[str, str]:
+    def __get_token_auth_header(req: Request) -> Tuple[Union[str, None], Union[str, None]]:
         """ Returns the value of Authorization Header in the HTTP Request.
 
         :param req: Request object that will be routed to an appropriate on_* responder method.
@@ -125,7 +131,7 @@ class Auth0Middleware(AbstractMiddleware):
         :raises: HTTPError := HTTPUnauthorized
         """
         try:
-            _auth_token = req.get_header('Authorization')
+            _auth_token: str = req.get_header('Authorization')
             (_bearer, _token) = _auth_token.split()
             return _bearer, _token
         except HTTPBadRequest:
@@ -146,6 +152,9 @@ class Auth0Middleware(AbstractMiddleware):
                 href_text=None,
                 code=None
             )
+        except AttributeError:
+            logger.info('No Authorization provided.')
+            return None, None
 
 
     def process_request(self, req: Request, resp: Response) -> NoReturn:

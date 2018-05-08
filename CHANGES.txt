@@ -12,6 +12,9 @@ Release Summary:
 1.0.1 -- May 08th, 2018:
     Documentation improvements
 
+1.0.2 -- May 08th, 2018:
+    Added Python logger for Middleware Logging.
+
 Release Details:
 ----------------
 
@@ -21,6 +24,15 @@ Initial project release, built on Python3 (v3.6.4). No support for earlier versi
 just a quick & dirty Auth0 Middleware implementation based on the micro Flask App documentation they had listed on their
 site.
 
+------------------------------------------------------------------------------------------------------------------------
+
 Release v1.0.1, May 08th, 2018
 
 Added and updated the project README!
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.2, May 08th, 2018
+
+Added and implemented a Python logger to capture Auth0Middleware data. Added `__version__`, `VERSION`, and `__name__`
+variables to the project.

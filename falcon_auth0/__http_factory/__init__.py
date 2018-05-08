@@ -5,8 +5,11 @@ from typing import Dict, List, Tuple, Union
 from falcon import HTTPError, HTTP_799
 
 # Local Source Imports
+from ..logger import logger
 
 __author__ = 'H.D. "Chip" McCullough IV'
+
+__name__ = 'Falcon.HTTPError'
 
 __default_human_title = 'Leonard Bernstein'
 __default_description = 'It\'s the end of the world as we know it, and I feel fine!'
@@ -51,6 +54,7 @@ def http_error_factory(status: str = HTTP_799, title: str = __default_human_titl
     :return: Falcon HTTP Error
     :rtype: HTTPError
     """
+    logger.error(msg='{status}: {title}\n\t\t{description}'.format(status=status, title=title, description=description))
     return HTTPError(
         status=status,
         title=title,
