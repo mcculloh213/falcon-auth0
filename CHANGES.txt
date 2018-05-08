@@ -9,6 +9,9 @@ Release Summary:
 1.0.0 -- May 07th, 2018:
     Initial Release
 
+1.0.1 -- May 08th, 2018:
+    Documentation improvements
+
 Release Details:
 ----------------
 
@@ -17,3 +20,7 @@ Release v1.0.0, May 07th, 2018
 Initial project release, built on Python3 (v3.6.4). No support for earlier versions of Python yet. This is currently
 just a quick & dirty Auth0 Middleware implementation based on the micro Flask App documentation they had listed on their
 site.
+
+Release v1.0.1, May 08th, 2018
+
+Added and updated the project README!

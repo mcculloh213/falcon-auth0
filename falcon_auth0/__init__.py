@@ -18,7 +18,7 @@ __author__ = 'H.D. "Chip" McCullough IV'
 AM = TypeVar('AM', bound='AbstractMiddleware')
 A0M = TypeVar('A0M', bound='Auth0Middleware')
 
-class AbstractMiddleware(object, ABC):
+class AbstractMiddleware(ABC):
 
     def __init__(self, middleware_config: dict = None, *args, **kwargs):
         self.__config: dict = middleware_config
@@ -74,8 +74,8 @@ class Auth0Middleware(AbstractMiddleware):
             Example:
             {
                 'alg': ['RS256'],
-                'audience': 'my.app.name.auth0.com/userinfo'
-                'domain': 'my.app.name.auth0.com', // or 'https://my.app.name.auth0.com/'
+                'audience': 'my.app.name.auth0.com/userinfo',
+                'domain': 'my.app.name.auth0.com', # or 'https://my.app.name.auth0.com/'
                 'jwks_uri': 'https://my.app.name.auth0.com/.well-known/jwks.json'
             }
         :type auth_config: Dict[str, Union[str, Dict[str, str]]]
@@ -87,26 +87,26 @@ class Auth0Middleware(AbstractMiddleware):
             {
                 'dev': {
                     'alg': ['RS256'],
-                    'audience': 'my.dev.environment.auth0.com/userinfo'
-                    'domain': 'my.dev.environment.auth0.com', // or 'https://my.dev.environment.auth0.com/'
+                    'audience': 'my.dev.environment.auth0.com/userinfo',
+                    'domain': 'my.dev.environment.auth0.com', # or 'https://my.dev.environment.auth0.com/'
                     'jwks_uri': 'https://my.dev.environment.auth0.com/.well-known/jwks.json'
                 },
                 'test': {
                     'alg': ['RS256'],
-                    'audience': 'my.test.environment.auth0.com/userinfo'
-                    'domain': 'my.test.environment.auth0.com', // or 'https://my.test.environment.auth0.com/'
+                    'audience': 'my.test.environment.auth0.com/userinfo',
+                    'domain': 'my.test.environment.auth0.com', # or 'https://my.test.environment.auth0.com/'
                     'jwks_uri': 'https://my.test.environment.auth0.com/.well-known/jwks.json'
                 },
                 'uat': {
                     'alg': ['RS256'],
-                    'audience': 'my.uat.environment.auth0.com/userinfo'
-                    'domain': 'my.uat.environment.auth0.com', // or 'https://my.uat.environment.auth0.com/'
+                    'audience': 'my.uat.environment.auth0.com/userinfo',
+                    'domain': 'my.uat.environment.auth0.com', # or 'https://my.uat.environment.auth0.com/'
                     'jwks_uri': 'https://my.uat.environment.auth0.com/.well-known/jwks.json'
                 },
                 'prod': {
                     'alg': ['RS256'],
-                    'audience': 'my.prod.environment.auth0.com/userinfo'
-                    'domain': 'my.prod.environment.auth0.com', // or 'https://my.prod.environment.auth0.com/'
+                    'audience': 'my.prod.environment.auth0.com/userinfo',
+                    'domain': 'my.prod.environment.auth0.com', # or 'https://my.prod.environment.auth0.com/'
                     'jwks_uri': 'https://my.prod.environment.auth0.com/.well-known/jwks.json'
                 }
             }

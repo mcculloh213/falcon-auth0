@@ -12,7 +12,7 @@ setup(
     name='falcon_auth0',
 
     # Version Number:
-    version='1.0.0',
+    version='1.0.1',
 
     # Classifiers
     classifiers = [
