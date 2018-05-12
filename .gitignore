@@ -6,3 +6,8 @@
 ###################
 build/
 dist/
+falcon_auth0.egg-info/
+
+#  Documentation  #
+###################
+documentation/build/

@@ -1,5 +1,6 @@
 # System Imports
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from json import dumps, loads
 from typing import Dict, NoReturn, Tuple, TypeVar, Union
 
@@ -16,7 +17,7 @@ from .logger import logger
 __author__ = 'H.D. "Chip" McCullough IV'
 # See https://auth0.com/docs/quickstart/backend/python/01-authorization
 
-__version__ = '1.0.7'
+__version__ = '1.1.0'
 VERSION = __version__
 
 __name__ = 'Auth0Middleware'
@@ -151,7 +152,7 @@ class Auth0Middleware(AbstractBaseMiddleware):
         super().__init__(middleware_config=auth_config, claims_config=claims_config)
         self.__jwt_options = jwt_options
         self.__digest = digest_access_token
-        self.__environment: str = environment
+        self.__environment = environment
         self.__jwks = self.__create_jwks()
 
     @staticmethod
@@ -163,8 +164,9 @@ class Auth0Middleware(AbstractBaseMiddleware):
 
         :raises: HTTPError := HTTPUnauthorized
         """
+        logger.info('Pulling the Authorization header from the Request.')
         try:
-            _auth_token: str = req.get_header('Authorization')
+            _auth_token = req.get_header('Authorization')
             (_bearer, _token) = _auth_token.split()
             return _bearer, _token
         except HTTPBadRequest:
@@ -201,9 +203,11 @@ class Auth0Middleware(AbstractBaseMiddleware):
         _access_token = req.get_header('X-Auth-Token', None)
         if _access_token is None:
             if req.method in ['HEAD', 'GET']:
+                logger.info('Auth Token found in query string.')
                 _access_token = (req.params.pop(_environment_config.get('access_token', 'access_token')) if self.__digest
                                     else req.params.get(_environment_config.get('access_token', 'access_token')))
             else:
+                logger.info('Auth Token found in request body.')
                 _access_token = (req.context.pop(_environment_config.get('access_token', 'access_token')) if self.__digest
                                     else req.context.get(_environment_config.get('access_token', 'access_token')))
         return _access_token
@@ -214,6 +218,7 @@ class Auth0Middleware(AbstractBaseMiddleware):
         :return: JWKS Dictionary or None if the endpoint could not be reached.
         :rtype: Union[dict, None]
         """
+        logger.info('Getting JWKS from Auth0.')
         _jwks_uri = self.config.get(self.__environment, self.config).get('jwks_uri', None)
         _jwks_raw = urlopen(_jwks_uri).read()
         return loads(_jwks_raw) if _jwks_raw is not None else None
@@ -221,32 +226,63 @@ class Auth0Middleware(AbstractBaseMiddleware):
     def __process_claims(self, claims: dict) -> dict:
         """ Process claims returned by parsing the JWT Authorization based on the claims config.
 
-        :param claims:
-        :return:
+            Example:
+            {
+                'email_verified': 'verified',
+                'email': 'email',
+                'clientID': 'id',
+                'updated_at': 'updated',
+                'name': 'name',
+                'picture': 'avatar',
+                'user_id': 'user_id',
+                'nickname': 'profile_name',
+                'identities': 'profiles',
+                'created_at': 'created',
+                'iss': 'issuer',
+                'sub': 'subject',
+                'aud': 'audience',
+                'iat': 'issued',
+                'exp': 'expires',
+                'at_hash': 'hash',
+                'nonce': 'its_a_secret_to_everyone'
+            }
+
+        :param claims: Decoded JWT claims
+        :type claims: Dict[str, Union[bool, str, List[Dict[]], int]]
+        :return: Processed claims
+        :rtype: Dict[str, Union[bool, str, List[Dict[]], int]]
         """
-        if self.__claims:
-            print(type(self.__claims))
-        print(claims)
-        return claims
+        logger.info('Processing decoded JWT Claims.')
+        _claims = deepcopy(claims)
+        if self.claims:
+            _claims = {}
+            for claim in self.claims.keys():
+                _claims.update({self.claims.get(claim): claims.get(claim)})
+        return _claims
 
     def process_request(self, req: Request, resp: Response) -> NoReturn:
         """ Processes the incoming request before routing it by parsing the Authorization header, and attaching the
-            claims from the JWT to the req context under the key 'auth'.
+            claims from the JWT to the req context under the key 'auth'. If a claims configuration was passed, it
+            also update the keys in the claims dictionary.
 
         :param req: Request object that will be routed to an appropriate on_* responder method.
         :param resp: Response object that will be routed to the on_* responder.
         """
+        logger.info('Processing incoming Request.')
         if self.__jwks is None:
+            logger.warning('No JWKS has been set.')
             self.__jwks = self.__create_jwks()
 
         _bearer, _token = self.__get_token_auth_header(req)
 
         if _bearer is None:
-            req.context.update({'auth': _bearer})
+            logger.info('Continuing with no Authorization.')
+            req.context.update({ 'auth': _bearer })
         elif _bearer.lower() == 'bearer':
+            logger.info('Authorization is a Bearer Token.')
             _unverified_header = jwt.get_unverified_header(_token)
             _rsa_key = {}
-
+            logger.info('Generating RSA Key.')
             for key in self.__jwks.get('keys', []):
                 if key.get('kid') == _unverified_header.get('kid'):
                     _rsa_key = {
@@ -257,6 +293,7 @@ class Auth0Middleware(AbstractBaseMiddleware):
                         'e': key['e']
                     }
                 if _rsa_key:
+                    logger.info('Decoding JWT.')
                     try:
                         _claims = jwt.decode(
                             token=_token,
@@ -270,8 +307,6 @@ class Auth0Middleware(AbstractBaseMiddleware):
                         )
                         req.context.update({ 'auth': self.__process_claims(_claims) })
                     except jwt.ExpiredSignatureError as e:
-                        print(type(e))
-                        print(e)
                         raise http_error_factory(
                             status=HTTP_401,
                             title='Expired Token',
@@ -281,8 +316,6 @@ class Auth0Middleware(AbstractBaseMiddleware):
                             code=None
                         )
                     except jwt.JWTClaimsError as e:
-                        print(type(e))
-                        print(e)
                         raise http_error_factory(
                             status=HTTP_401,
                             title='Invalid Claims',
@@ -294,6 +327,8 @@ class Auth0Middleware(AbstractBaseMiddleware):
                     except Exception as e:
                         print(type(e))
                         print(e)
+                        logger.critical('UNEXPECTED EXCEPTION.')
+                        logger.critical(e)
                         raise http_error_factory()
         else:
             raise http_error_factory(

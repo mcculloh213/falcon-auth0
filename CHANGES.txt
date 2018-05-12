@@ -31,6 +31,15 @@ Release Summary:
     Added support for retrieving the access_token used to validate the JSON Web Token from the incoming Request body OR
         parameters OR header via X-Auth-Token.
 
+1.0.8 -- May 09th, 2018:
+    Fixed AttributeError: Auth0Middleware object has no attribute _Auth0Middleware__claims
+
+1.0.9 -- May 09th, 2018:
+    Remove `var: type = ...` to help support Python 3.5
+
+1.1.0 -- May 10th, 2018:
+    Stop trying to support Python 3.5, finish processing decoded JWT claims.
+
 Release Details:
 ----------------
 
@@ -91,3 +100,24 @@ Release v1.0.7, May 08th, 2018
 
 Changed getting access_token solely from the Request body, because HEAD and GET request don't have that. So it'll first
 check for the header X-Auth-Token, then resort to the body or the query string to find the access_token.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.8, May 09th, 2018
+
+Fixed a bug when parsing claims. Before, it would not recognize the variable `__claims`, because it belongs to the
+AbstractBaseMiddleware, now `__claims` can be called through `.claims` in the Auth0Middleware.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.0.9, May 09th, 2018
+
+Removed typing by `var: type = ...` to help support Python 3.5.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Release v1.1.0, May 10th, 2018
+
+Supporting Python 3.5 probably is fruitless, because the `typing` library doesn't include `NoReturn`, so giving that up
+for the time being. Right now, falcon-auth0 only supports Python 3.6 and higher. As for that, the function to process
+the decoded JWT claims has been finished, and the build status can be changed from Alpha to Production!
