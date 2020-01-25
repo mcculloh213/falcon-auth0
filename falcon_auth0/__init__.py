@@ -203,9 +203,16 @@ class Auth0Middleware(AbstractBaseMiddleware):
         _access_token = req.get_header('X-Auth-Token', None)
         if _access_token is None:
             if req.method in ['HEAD', 'GET']:
-                logger.info('Auth Token found in query string.')
-                _access_token = (req.params.pop(_environment_config.get('access_token', 'access_token')) if self.__digest
-                                    else req.params.get(_environment_config.get('access_token', 'access_token')))
+                access_token_key = _environment_config.get('access_token', 'access_token')
+                try:
+                    _access_token = (req.params.pop(access_token_key) if self.__digest
+                                 else req.params.get(access_token_key))
+                    logger.info('Auth Token found in query string.')
+
+                except KeyError:
+                    logger.info('Auth Token NOT found in query string.')
+                    _access_token = None
+
             else:
                 logger.info('Auth Token found in request body.')
                 _access_token = (req.context.pop(_environment_config.get('access_token', 'access_token')) if self.__digest
